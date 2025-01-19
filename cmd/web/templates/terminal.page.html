@@ -46,7 +46,7 @@
         <input type="hidden" name="payment_intent" id="payment_intent">
         <input type="hidden" name="payment_method" id="payment_method">
         <input type="hidden" name="payment_amount" id="payment_amount">
-        <input type="hidden" name="payment_currency" id="payment_amount">
+        <input type="hidden" name="payment_currency" id="payment_currency">
     </form>
 {{ end }}
 
@@ -60,11 +60,28 @@
         const payButton = document.getElementById('pay-button');
         const processing = document.getElementById('processing-payment');
 
-        stripe = Stripe('pk_test_51QhdsrDH5ABPFXgy71k76EF3JGVkA6xHRwFPyuOoOLyM5VvB06TG7xiSQCPROIIWvMvZMKBc7hTcmLqF0MF5dDJF00rvtFdvBP');
+        stripe = Stripe('pk_test_51Qhdt0D3kF1VvJfPRb7QrE5AoopVfDYFoVi7j8j8NKoRUOXT1wpHqseGEpHxife4QsArzY2EDCGNzortsBSzbb3z001Qd4G9xU');
 
         function hidePayButton() {
             payButton.classList.add('d-none');
             processing.classList.remove('d-none');
+        }
+
+        function showPayButtons() {
+            processing.classList.add('d-none');
+            payButton.classList.remove('d-none');
+        }
+
+        function showCardError(msg) {
+            cardMessages.classList.add('alert-danger');
+            cardMessages.classList.remove('alert-success', 'd-none');
+            cardMessages.innerText = msg;
+        }
+
+        function showCardSuccess() {
+            cardMessages.classList.add('alert-success');
+            cardMessages.classList.remove('alert-danger', 'd-none');
+            cardMessages.innerText = 'Transaciton successful';
         }
 
         function val() {
@@ -99,9 +116,34 @@
                 .then(response => {
                     let data;
                     try {
-                        data = JSON.parse(response)
+                        data = JSON.parse(response);
+                        stripe.confirmCardPayment(data.client_secret, {
+                            payment_method: {
+                                card: card,
+                                billing_details: {
+                                    name: document.getElementById('cardholder-name').value
+                                }
+                            }
+                        }).then((result) => {
+                            if (result.error) {
+                                // card declined, or somenthig went wrong with the card
+                                showCardError(result.error.message);
+                                showPayButtons();
+                            } else if (result.paymentIntent) {
+                                if (result.paymentIntent.status === "succeeded") {
+                                    // we have charged the card
+                                    document.getElementById('payment_method').value = result.paymentIntent.payment_method_types[0];
+                                    document.getElementById('payment_intent').value = result.paymentIntent.id;
+                                    document.getElementById('payment_amount').value = result.paymentIntent.amount;
+                                    document.getElementById('payment_currency').value = result.paymentIntent.currency;
+                                    showCardSuccess();
+                                    // would submit the form
+                                }
+                            }
+                        });
                     } catch(err) {
-                        console.log(err)
+                        showCardError("Invalid response from payment gateway!");
+                        showPayButtons();
                     }
                 })
         }
